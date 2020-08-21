@@ -51,7 +51,8 @@
       Importance="High" />
   </Target>
 
-  <Target Name="PreparePublishToAzureBlobFeed">
+  <Target Name="PreparePublishToAzureBlobFeed"
+          DependsOnTargets="GetProductVersions">
     <Error Condition="'$(PackagesUrl)'==''" Text="Missing property PackagesUrl" />
 
     <PropertyGroup>
@@ -78,54 +79,18 @@
       <ItemsToPush Include="@(ShippingNupkgToPublishFile)" />
       <ItemsToPush Include="@(NonShippingNupkgToPublishFile)" ManifestArtifactData="NonShipping=true" />
       <ItemsToPush Include="@(SymbolNupkgToPublishFile)" />
-    </ItemGroup>
-
-    <!-- Push items to AzDO as build artifacts, generating the asset manifest as a side effect. -->
-    <PushToAzureDevOpsArtifacts
-      ItemsToPush="@(ItemsToPush)"
-      ManifestBuildData="Location=$(ExpectedFeedUrl)"
-      ManifestRepoUri="$(BUILD_REPOSITORY_URI)"
-      ManifestBranch="$(BUILD_SOURCEBRANCH)"
-      ManifestBuildId="$(BUILD_BUILDNUMBER)"
-      ManifestCommit="$(BUILD_SOURCEVERSION)"
-      IsStableBuild="$(IsStableBuild)"
-      AssetManifestPath="$(AssetManifestFile)"
-      AssetsTemporaryDirectory="$(TempWorkingDir)" />
-
-    <!-- Copy the generated manifest to the build's artifacts -->
-    <Copy SourceFiles="$(AssetManifestFile)" DestinationFolder="$(TempWorkingDir)" />
-
-    <Message Importance="High" Text="Uploading $(AssetManifestFilename) to pipeline" />
-    <Message
-      Text="##vso[artifact.upload containerfolder=AssetManifests;artifactname=AssetManifests]$(TempWorkingDir)$(AssetManifestFilename)"
-      Importance="High" />
-  </Target>
-
-  <Target Name="PreparePublishFilesToAzureBlobFeed"
-          DependsOnTargets="GetProductVersions">
-    <Error Condition="'$(PackagesUrl)'==''" Text="Missing property PackagesUrl" />
-
-    <PropertyGroup>
-      <ExpectedFeedUrl>$(PackagesUrl)</ExpectedFeedUrl>
-      <AssetManifestFilename>Manifest_Installers.xml</AssetManifestFilename>
-      <AssetManifestFile>$(ArtifactsLogDir)AssetManifest/$(AssetManifestFilename)</AssetManifestFile>
-
-      <!-- Create temp dir to store generated asset manifest, per Arcade guidance. -->
-      <TempWorkingDir>$(ArtifactsObjDir)TempWorkingDir\$([System.Guid]::NewGuid())\</TempWorkingDir>
-    </PropertyGroup>
-
-    <ItemGroup>
-      <ItemsToPush Remove="@(ItemsToPush)" />
 
       <ItemsToPush
         Include="@(UploadToBlobStorageFile)"
         Exclude="@(NupkgToPublishFile);@(SymbolNupkgToPublishFile)">
         <RelativeBlobPath>$(InstallersRelativePath)%(Filename)%(Extension)</RelativeBlobPath>
+        <PublishFlatContainer>true</PublishFlatContainer>
       </ItemsToPush>
 
       <ItemsToPush Include="@(GeneratedChecksumFile)">
         <RelativeBlobPath>$(InstallersRelativePath)%(Filename)%(Extension)</RelativeBlobPath>
         <Category>Checksum</Category>
+        <PublishFlatContainer>true</PublishFlatContainer>
       </ItemsToPush>
     </ItemGroup>
 
@@ -138,9 +103,7 @@
       ManifestBuildId="$(BUILD_BUILDNUMBER)"
       ManifestCommit="$(BUILD_SOURCEVERSION)"
       IsStableBuild="$(IsStableBuild)"
-      PublishFlatContainer="true"
-      AssetManifestPath="$(AssetManifestFile)"
-      AssetsTemporaryDirectory="$(TempWorkingDir)" />
+      AssetManifestPath="$(AssetManifestFile)" />
 
     <!-- Copy the generated manifest to the build's artifacts -->
     <Copy SourceFiles="$(AssetManifestFile)" DestinationFolder="$(TempWorkingDir)" />
@@ -160,8 +123,7 @@
   <Target Name="Build"
           DependsOnTargets="
             UploadPreparedArtifactsToPipeline;
-            PreparePublishToAzureBlobFeed;
-            PreparePublishFilesToAzureBlobFeed">
+            PreparePublishToAzureBlobFeed">
     <Message Importance="High" Text="Complete!" />
   </Target>
 
